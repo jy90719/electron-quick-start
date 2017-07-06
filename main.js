@@ -14,13 +14,28 @@ let mainWindow
 
 function createWindow(url) {
   return new Promise((resolve, reject) => {
-    mainWindow = new BrowserWindow({ show: false, fullscreen: true })
-    mainWindow.once('page-title-updated', () => {
-      setTimeout(() => {
-        mainWindow.capturePage((image) => {
-          resolve(image);
+    mainWindow = new BrowserWindow({
+      show: true
+    });
+    mainWindow.webContents.openDevTools();
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow.webContents.executeJavaScript(`
+      (()=>{
+        let pageWidth=document.documentElement.offsetWidth;
+        let pageHeight=document.documentElement.offsetHeight;
+        return {
+          pageWidth,
+          pageHeight
+        }
+      }())
+      `).then(({ pageWidth, pageHeight }) => {
+          console.log(pageWidth, pageHeight);
+          setTimeout(() => {
+            mainWindow.webContents.capturePage((image) => {
+              resolve(image);
+            });
+          }, 2000);
         });
-      }, 500);
     });
 
     // Emitted when the window is closed.
@@ -61,7 +76,7 @@ app.on('activate', function () {
 expressApp.get('/', (req, res) => {
   let url = req.query.url;
   createWindow(url).then((image) => {
-    res.send(image.toJPEG(100));
+    res.send(`<img src="${image.toDataURL()}"/>`);
   })
 });
 expressApp.listen(3000);
